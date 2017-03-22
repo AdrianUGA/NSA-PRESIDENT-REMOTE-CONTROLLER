@@ -5,6 +5,7 @@
 #include "csapp.h"
 
 #define MAX_NAME_LEN 256
+#define NPROC 4
 
 void echo(int connfd);
 void handle_connection(int listenfd){
@@ -17,9 +18,9 @@ void handle_connection(int listenfd){
     clientlen = (socklen_t)sizeof(clientaddr);
 
     while (1) {
-        
+        printf("Waiting\n");
         connfd = Accept(listenfd, (SA *)&clientaddr, &clientlen);
-
+        printf("New connection.\n");
         /* determine the name of the client */
         Getnameinfo((SA *) &clientaddr, clientlen,
                     client_hostname, MAX_NAME_LEN, 0, 0, 0);
@@ -48,11 +49,23 @@ int main(int argc, char **argv)
         fprintf(stderr, "usage: %s <port>\n", argv[0]);
         exit(0);
     }
+
+    pid_t children[NPROC];
+
     port = atoi(argv[1]);
+    listenfd = Open_listenfd(port);
+
+    int i;
+    for(i=0; i<NPROC; i++){
+        children[i] = Fork();
+        if(children[i] == 0){
+            handle_connection(listenfd);
+        }
+    }
+        
     
 
-    listenfd = Open_listenfd(port);
-    handle_connection(listenfd);
+    wait(NULL); /* Wait for all children */
     exit(0);
 }
 
