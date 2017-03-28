@@ -5,9 +5,12 @@
 #include "csapp.h"
 
 #define MAX_NAME_LEN 256
+#define PORT 2121
 #define NPROC 4
 
 void echo(int connfd);
+void lire(int connfd);
+
 void handle_connection(int listenfd){
     int connfd;
     struct sockaddr_in clientaddr;
@@ -45,14 +48,11 @@ int main(int argc, char **argv)
 {
     int listenfd, port;
     
-    if (argc != 2) {
-        fprintf(stderr, "usage: %s <port>\n", argv[0]);
-        exit(0);
-    }
+    
 
     pid_t children[NPROC];
 
-    port = atoi(argv[1]);
+    port = PORT;
     listenfd = Open_listenfd(port);
 
     int i;

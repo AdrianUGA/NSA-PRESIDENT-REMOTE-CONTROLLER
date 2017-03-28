@@ -1,6 +1,6 @@
 default: server client
 
-server:  echoserveri.o echo.o csapp.o
+server:  echoserverc.o echo.o csapp.o
 	gcc $^ -o $@ -pthread
 client: echoclient.o echo.o csapp.o
 	gcc $^ -o $@ -pthread

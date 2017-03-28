@@ -2,6 +2,7 @@
  * echoclient.c - An echo client
  */
 #include "csapp.h"
+#define PORT 2121
 
 int main(int argc, char **argv)
 {
@@ -9,12 +10,12 @@ int main(int argc, char **argv)
     char *host, buf[MAXLINE];
     rio_t rio;
 
-    if (argc != 3) {
-        fprintf(stderr, "usage: %s <host> <port>\n", argv[0]);
+    if (argc != 2) {
+        fprintf(stderr, "usage: %s <host>\n", argv[0]);
         exit(0);
     }
     host = argv[1];
-    port = atoi(argv[2]);
+    port = PORT;
 
     /*
      * Note that the 'host' can be a name or an IP address.
@@ -39,6 +40,8 @@ int main(int argc, char **argv)
         } else { /* the server has prematurely closed the connection */
             break;
         }
+
+        
     }
     Close(clientfd);
     exit(0);
