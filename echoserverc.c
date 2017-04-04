@@ -35,10 +35,13 @@ void handle_connection(int listenfd){
         printf("server connected to %s (%s)\n", client_hostname,
                client_ip_string);
 
-        echo(connfd);
+        lire(connfd);
+        printf("Ending connection\n");
         Close(connfd);
     }
 }
+
+
 
 /* 
  * Note that this code only works with IPv4 addresses

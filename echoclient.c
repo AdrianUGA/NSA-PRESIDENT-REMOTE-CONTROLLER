@@ -6,7 +6,7 @@
 
 int main(int argc, char **argv)
 {
-    int clientfd, port;
+    int clientfd, port, leave=0;
     char *host, buf[MAXLINE];
     rio_t rio;
 
@@ -33,14 +33,15 @@ int main(int argc, char **argv)
     
     Rio_readinitb(&rio, clientfd);
 
-    while (Fgets(buf, MAXLINE, stdin) != NULL) {
+    while (!leave) {
+        printf("\nftp>");
+        Fgets(buf, MAXLINE, stdin);
         Rio_writen(clientfd, buf, strlen(buf));
         if (Rio_readlineb(&rio, buf, MAXLINE) > 0) {
             Fputs(buf, stdout);
         } else { /* the server has prematurely closed the connection */
             break;
         }
-
         
     }
     Close(clientfd);
