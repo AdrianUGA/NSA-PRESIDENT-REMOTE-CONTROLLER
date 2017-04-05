@@ -32,13 +32,14 @@ int main(int argc, char **argv)
     printf("client connected to server OS\n"); 
     
     Rio_readinitb(&rio, clientfd);
-
+    
     while (!leave) {
-        printf("\nftp>");
+        printf("ftp>");
         Fgets(buf, MAXLINE, stdin);
         Rio_writen(clientfd, buf, strlen(buf));
         if (Rio_readlineb(&rio, buf, MAXLINE) > 0) {
-            Fputs(buf, stdout);
+            if(strcmp(buf, "\n") != 0)
+                Fputs(buf, stdout);
         } else { /* the server has prematurely closed the connection */
             break;
         }

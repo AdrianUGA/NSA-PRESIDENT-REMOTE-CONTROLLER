@@ -39,7 +39,7 @@ void liberer(char **table){
 }
 
 void send_to_rio(int connfd, char* string){
-	Rio_writen(connfd, string, strlen(string)+1);
+	Rio_writen(connfd, string, strlen(string)); /* On veille à ne pas envoyer le zéro de fin de cha^ine */
 	Rio_writen(connfd, "\n", 1);
 }
 
@@ -57,9 +57,10 @@ void echo(int connfd)
     }
 }
 
-int readFile( char* filename, char* content){
-	strcpy(content, "Coucou");
-	return 2;
+char* readFile(char* filename){
+	char *content = malloc(strlen(filename)+1);
+	strcpy(content, filename);
+	return content;
 }
 
 
@@ -84,7 +85,7 @@ void lire(int connfd){
         		send_to_rio(connfd, "Need file as argument");
         		continue;
         	}
-        	readFile(commands[1], file_content);
+        	file_content = readFile(commands[1]);
         	printf("%s\n", file_content);
     	    send_to_rio(connfd, "file_content");
 
@@ -94,41 +95,3 @@ void lire(int connfd){
         liberer(commands);
     }
 }
-
-void lire2(int connfd){
-	size_t n;
-	int answer_size;
-	char action[5];
-    char command[MAXLINE], *buff, leave = 0, *answer, *content;
-    rio_t rio;
-
-
-    Rio_readinitb(&rio, connfd);
-    while(!leave){
-
-	    n = Rio_readlineb(&rio, command, MAXLINE);
-	    command[strlen(command)-1] = '\0';
-	    memcpy(action, &buff[0], 4);
-		action[4] = '\0';
-
-	    if(strcmp(command, "quit") == 0){
-	    	leave = 1;
-	    }else if (strcmp(action, "get ") == 0){
-	    	printf("Coucou\n");
-	    	int filename_size = strlen(command) - 4 + 1;
-	    	char *filename = malloc(filename_size);
-	    	strcpy(filename, &command[4]);
-
-
-		    printf("About to read the file %s\n", filename);
-		    answer_size = readFile(filename, content);
-		    printf("Size : %d - content %s\n", answer_size, content);
-		    Rio_writen(connfd, content, answer_size);
-		    free(content);
-		    leave=1;
-		}else{
-			Rio_writen(connfd, INVALID_COMMAND, strlen(INVALID_COMMAND)+1);
-		}
-	}
-}
-
