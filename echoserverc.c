@@ -57,7 +57,6 @@ int main(int argc, char **argv)
 
     port = PORT;
     listenfd = Open_listenfd(port);
-    handle_connection(listenfd);
     int i;
     for(i=0; i<NPROC; i++){
         children[i] = Fork();
