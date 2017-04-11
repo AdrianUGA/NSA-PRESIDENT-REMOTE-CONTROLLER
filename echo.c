@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <dirent.h>
+#include <stdio.h>
 
 #define MAXCOMMAND 10
 #define BLOCK_SIZE 40
@@ -130,6 +131,23 @@ void list_directory(char *path){
 	}
 }
 
+void remove_file(char *working_directory, char *filename, int recursivity){
+	char path[strlen(working_directory) + strlen(filename) + 1 + 1];
+	strcpy(path, working_directory);
+	strcpy(path + strlen(working_directory), "/");
+	strcpy(path + strlen(working_directory) + 1, filename);
+
+	if(exist_file(path) == 0){
+		send_to_rio("File not found : ");
+		send_to_rio(path);
+		send_to_rio("\n");
+	} else if (exist_file(path) == 2 && recursivity == 0){
+		send_to_rio("To delete a directory use 'rm -r'\n");
+	}else{
+		remove(path);
+	}
+}
+
 void liberer(char **table){
 	int i = 0;
 	while(table[i] != NULL){
@@ -174,15 +192,19 @@ char* send_file(int connfd, char* filename){
 
 	int nb_read;
 	FILE *file;
-	char tmp[BLOCK_SIZE+1];
+	char tmp[BLOCK_SIZE];
 	file = fopen(filename, "r");
+	int continuer = 1;
 
-	do{
+	while(continuer){
 		nb_read = fread(tmp, BLOCK_SIZE, 1, file);
-		tmp[BLOCK_SIZE] = '\0';
-		Rio_writen(connfd, tmp, BLOCK_SIZE);
-	}while(nb_read == BLOCK_SIZE);
-
+		if(feof(file)){
+			send_to_rio(tmp);
+			continuer = 0;
+		}else{
+			Rio_writen(connfd, tmp, BLOCK_SIZE);
+		}
+	}
 
 }
 
@@ -261,6 +283,18 @@ void lire(int connfd){
 	    			mkdir(filename, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 	        	}
 	        }
+        } else if(strcmp(commands[0], "rm") == 0){
+        	if(commands[1] == NULL){
+        		send_to_rio("Need name as argument\n");
+        	}else if(strcmp(commands[1], "-r") == 0){
+        		if(commands[2] == NULL){
+        			send_to_rio("Need name as argument\n");
+        		} else {
+        			remove_file(working_directory, commands[2], 1);
+        		}
+        	} else {
+        		remove_file(working_directory, commands[1], 0);
+        	}
         }
         else{
         	send_to_rio("Invalid command\n");
