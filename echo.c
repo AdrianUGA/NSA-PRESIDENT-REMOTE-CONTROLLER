@@ -4,7 +4,6 @@
 #include "csapp.h"
 #include <string.h>
 
-#define INVALID_COMMAND "Invalid command\n"
 #define MAXCOMMAND 10
 #define BLOCK_SIZE 40
 
@@ -39,12 +38,9 @@ void liberer(char **table){
 	}
 }
 
-void send_to_rio(int connfd, char* string, int flush){
-	Rio_writen(connfd, string, strlen(string)); /* On veille à ne pas envoyer le zéro de fin de cha^ine */
-	if(flush)
-		Rio_writen(connfd, "\n", 1);
+void send_to_rio(int connfd, char* string){
+	Rio_writen(connfd, string, strlen(string)+1); /* On veille à bien envoyer le zéro de fin de cha^ine */
 }
-
 
 void echo(int connfd)
 {
@@ -69,10 +65,9 @@ char* send_file(int connfd, char* filename){
 	do{
 		nb_read = fread(tmp, BLOCK_SIZE, 1, file);
 		tmp[BLOCK_SIZE] = '\0';
-		send_to_rio(connfd, tmp, 0);
+		send_to_rio(connfd, tmp);
 	}while(nb_read == BLOCK_SIZE);
 
-	send_to_rio(connfd, "", 1);
 
 }
 
@@ -90,18 +85,18 @@ void lire(int connfd){
 
         split(buf, commands);
 
-        if(strcmp(commands[0], "quit") == 0){
-			send_to_rio(connfd, "Exited", 1);
+        if(strcmp(commands[0], "quit") == 0 || strcmp(commands[0], "bye") == 0 || strcmp(commands[0], "exit") == 0){
+			send_to_rio(connfd, "Exit\n");
         	break;
         }else if(strcmp(commands[0], "get") == 0){
         	if(commands[1] == NULL){
-        		send_to_rio(connfd, "Need file as argument", 1);
+        		send_to_rio(connfd, "Need file as argument\n");
         		continue;
         	}
         	send_file(connfd, commands[1]);
 
         }else{
-        	send_to_rio(connfd, "", 1);
+        	send_to_rio(connfd, "Invalid command\n");
         }
         liberer(commands);
     }
