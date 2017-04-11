@@ -6,6 +6,7 @@
 
 #define INVALID_COMMAND "Invalid command\n"
 #define MAXCOMMAND 10
+#define BLOCK_SIZE 40
 
 
 void split(char *string, char **table){
@@ -38,9 +39,10 @@ void liberer(char **table){
 	}
 }
 
-void send_to_rio(int connfd, char* string){
+void send_to_rio(int connfd, char* string, int flush){
 	Rio_writen(connfd, string, strlen(string)); /* On veille à ne pas envoyer le zéro de fin de cha^ine */
-	Rio_writen(connfd, "\n", 1);
+	if(flush)
+		Rio_writen(connfd, "\n", 1);
 }
 
 
@@ -57,16 +59,27 @@ void echo(int connfd)
     }
 }
 
-char* readFile(char* filename){
-	char *content = malloc(strlen(filename)+1);
-	strcpy(content, filename);
-	return content;
+char* send_file(int connfd, char* filename){
+
+	int nb_read;
+	FILE *file;
+	char tmp[BLOCK_SIZE+1];
+	file = fopen(filename, "r");
+
+	do{
+		nb_read = fread(tmp, BLOCK_SIZE, 1, file);
+		tmp[BLOCK_SIZE] = '\0';
+		send_to_rio(connfd, tmp, 0);
+	}while(nb_read == BLOCK_SIZE);
+
+	send_to_rio(connfd, "", 1);
+
 }
 
 
 void lire(int connfd){
 	size_t n;
-    char buf[MAXLINE], *file_content;
+    char buf[MAXLINE];
     char *commands[MAXCOMMAND];
     rio_t rio;
 
@@ -78,19 +91,17 @@ void lire(int connfd){
         split(buf, commands);
 
         if(strcmp(commands[0], "quit") == 0){
-			send_to_rio(connfd, "Exited");
+			send_to_rio(connfd, "Exited", 1);
         	break;
         }else if(strcmp(commands[0], "get") == 0){
         	if(commands[1] == NULL){
-        		send_to_rio(connfd, "Need file as argument");
+        		send_to_rio(connfd, "Need file as argument", 1);
         		continue;
         	}
-        	file_content = readFile(commands[1]);
-        	printf("%s\n", file_content);
-    	    send_to_rio(connfd, "file_content");
+        	send_file(connfd, commands[1]);
 
         }else{
-        	send_to_rio(connfd, "");
+        	send_to_rio(connfd, "", 1);
         }
         liberer(commands);
     }
