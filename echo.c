@@ -50,7 +50,8 @@ char last_char_off(char *string){
 	return string[strlen(string)-1];
 }
 
-int exist_directory(char *path){
+/* 0 : n'existe pas, 1 : fichier, 2 : répertoire */
+int exist_file(char *path){
 	struct stat s;
 	int err = stat(path, &s);
 	if(-1 == err) {
@@ -62,15 +63,16 @@ int exist_directory(char *path){
 	    }
 	} else {
 	    if(S_ISDIR(s.st_mode)) {
-	        return 1;
+	        return 2;
 	    } else {
-	        return 0;
+	        return 1;
 	    }
 	}
 }
 
+
 void set_working_directory(char *working_directory, char *path){
-	if(!exist_directory(path)){
+	if(exist_file(path) != 2){
         send_to_rio("Directory not found : ");
         send_to_rio(path);
         send_to_rio("\n");
@@ -97,6 +99,9 @@ void change_directory(char *working_directory, char *path){
 		set_working_directory(working_directory, path);
 	} else if(strcmp(path, "..") == 0){
 		while(working_directory[strlen(working_directory)-1] != '/'){
+			working_directory[strlen(working_directory)-1] = '\0';
+		}
+		if(strcmp(working_directory, "/") != 0){
 			working_directory[strlen(working_directory)-1] = '\0';
 		}
 		working_directory = realloc(working_directory, strlen(working_directory) + 1);
@@ -195,7 +200,17 @@ void lire(int connfd){
         	if(commands[1] == NULL){
         		send_to_rio("Need file as argument\n");
         	}else{
-        		send_file(connfd, commands[1]);
+        		char filename[strlen(working_directory) + strlen(commands[1]) + 1 + 1];
+        		strcpy(filename, working_directory);
+        		strcpy(filename + strlen(working_directory), "/");
+        		strcpy(filename + strlen(working_directory) + 1, commands[1]);
+        		if(exist_file(filename) != 1){
+        			send_to_rio("File not foud : ");
+        			send_to_rio(filename);
+        			send_to_rio("\n");
+        		}else{
+        			send_file(connfd, filename);
+        		}
         	}
 
         }else if(strcmp(commands[0], "cd") == 0){
