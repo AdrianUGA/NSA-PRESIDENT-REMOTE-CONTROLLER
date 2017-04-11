@@ -3,10 +3,12 @@
  */
 #include "csapp.h"
 #include <string.h>
+#include <unistd.h>
 
 #define MAXCOMMAND 10
 #define BLOCK_SIZE 40
 
+char *string_to_send = NULL;
 
 void split(char *string, char **table){
 	char tmp[MAXLINE];
@@ -30,6 +32,40 @@ void split(char *string, char **table){
 	}
 }
 
+char last_char_off(char *string){
+	if(string == NULL || strlen(string) == 0)
+		return '\0';
+	return string[strlen(string)-1];
+}
+
+void set_working_directory(char *working_directory, char *path){
+	working_directory = realloc(working_directory, strlen(path) + 1);
+	strcpy(working_directory, path);
+}
+
+void init_working_directory(char *working_directory){
+	int size = 1000;
+	char cwd[size];
+	getcwd(cwd, size);
+	set_working_directory(working_directory, cwd);
+}
+
+void change_directory(char *working_directory, char *path){
+	if(path[0] == '/'){
+		set_working_directory(working_directory, path);
+	} else {
+		if(path[strlen(path)-1] == '/'){ /* slash final */
+			path[strlen(path)-1] = '\0';
+		}
+
+		char new_working_directory[strlen(working_directory) + strlen(path) + 2];
+		strcpy(new_working_directory, working_directory);
+		strcpy(new_working_directory + strlen(new_working_directory), "/");
+		strcpy(new_working_directory + strlen(new_working_directory) - 1 + 1, path);
+		set_working_directory(working_directory, new_working_directory);
+	}
+}
+
 void liberer(char **table){
 	int i = 0;
 	while(table[i] != NULL){
@@ -38,8 +74,32 @@ void liberer(char **table){
 	}
 }
 
-void send_to_rio(int connfd, char* string){
-	Rio_writen(connfd, string, strlen(string)+1); /* On veille à bien envoyer le zéro de fin de cha^ine */
+/* Avec cette fonction, l'envoi est différé */
+void send_to_rio(char* string){
+	if(string_to_send == NULL){
+		string_to_send = malloc(strlen(string)+1);
+		strcpy(string_to_send, string);
+	}else{
+		string_to_send = realloc(string_to_send, strlen(string_to_send) + strlen(string) + 1);
+		strcpy(string_to_send + strlen(string_to_send), string);
+	}
+}
+
+void send_prompt(char* working_directory, char last_char_sent){
+	if(last_char_sent != '\n')
+		send_to_rio("\n");
+
+	send_to_rio("ftp - ");
+	send_to_rio(working_directory);
+	send_to_rio(" > ");
+}
+
+void flush(char *working_directory, int connfd){
+
+	send_prompt(working_directory, last_char_off(string_to_send));
+
+	Rio_writen(connfd, string_to_send, strlen(string_to_send)+1);
+	string_to_send = NULL;
 }
 
 void echo(int connfd)
@@ -65,10 +125,15 @@ char* send_file(int connfd, char* filename){
 	do{
 		nb_read = fread(tmp, BLOCK_SIZE, 1, file);
 		tmp[BLOCK_SIZE] = '\0';
-		send_to_rio(connfd, tmp);
+		Rio_writen(connfd, tmp, BLOCK_SIZE);
 	}while(nb_read == BLOCK_SIZE);
 
 
+}
+
+void welcome(char *working_directory, int connfd){
+	send_to_rio("Connecté au server FTP\n");
+	flush(working_directory, connfd);
 }
 
 
@@ -78,7 +143,11 @@ void lire(int connfd){
     char *commands[MAXCOMMAND];
     rio_t rio;
 
+    char *working_directory = malloc(0); /* Pour que realloc fonctionne */
+    init_working_directory(working_directory);
+
     Rio_readinitb(&rio, connfd);
+    welcome(working_directory, connfd);
     while ((n = Rio_readlineb(&rio, buf, MAXLINE)) != 0) {
 	    buf[strlen(buf)-1] = '\0';
         printf("server received %u bytes\n", (unsigned int)n);
@@ -86,18 +155,27 @@ void lire(int connfd){
         split(buf, commands);
 
         if(strcmp(commands[0], "quit") == 0 || strcmp(commands[0], "bye") == 0 || strcmp(commands[0], "exit") == 0){
-			send_to_rio(connfd, "Exit\n");
+			send_to_rio("Exit\n");
         	break;
         }else if(strcmp(commands[0], "get") == 0){
         	if(commands[1] == NULL){
-        		send_to_rio(connfd, "Need file as argument\n");
-        		continue;
+        		send_to_rio("Need file as argument\n");
+        	}else{
+        		send_file(connfd, commands[1]);
         	}
-        	send_file(connfd, commands[1]);
 
+        }else if(strcmp(commands[0], "cd") == 0){
+        	if(commands[1] == NULL){
+        		init_working_directory(working_directory);
+        	}else{
+        		change_directory(working_directory, commands[1]);
+        	}
         }else{
-        	send_to_rio(connfd, "Invalid command\n");
+        	send_to_rio("Invalid command\n");
         }
+
+        flush(working_directory, connfd);
         liberer(commands);
     }
+    free(working_directory);
 }

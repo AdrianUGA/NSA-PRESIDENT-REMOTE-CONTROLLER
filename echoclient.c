@@ -34,7 +34,14 @@ int main(int argc, char **argv)
     Rio_readinitb(&rio, clientfd);
     
     while (!leave) {
-        printf("ftp>");
+        if (read(clientfd, buf, MAXLINE) > 0) {
+            if(strcmp(buf, "\n") != 0)
+                Fputs(buf, stdout);
+        } else { /* the server has prematurely closed the connection */
+            break;
+        }
+
+        
         Fgets(buf, MAXLINE, stdin);
 
         if(strcmp(buf, "quit\n") == 0 || strcmp(buf, "bye\n") == 0 || strcmp(buf, "exit\n") == 0){
@@ -43,12 +50,7 @@ int main(int argc, char **argv)
 
         Rio_writen(clientfd, buf, strlen(buf));
 
-        if (read(clientfd, buf, MAXLINE) > 0) {
-            if(strcmp(buf, "\n") != 0)
-                Fputs(buf, stdout);
-        } else { /* the server has prematurely closed the connection */
-            break;
-        }
+        
     }
     Close(clientfd);
     exit(0);
