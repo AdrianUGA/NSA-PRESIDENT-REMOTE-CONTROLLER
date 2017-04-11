@@ -5,6 +5,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <dirent.h>
 
 #define MAXCOMMAND 10
 #define BLOCK_SIZE 40
@@ -114,6 +115,21 @@ void change_directory(char *working_directory, char *path){
 	}
 }
 
+void list_directory(char *path){
+	DIR *dir;
+	struct dirent *ent;
+	if ((dir = opendir (path)) != NULL) {
+	  while ((ent = readdir (dir)) != NULL) {
+	    send_to_rio(ent->d_name);
+	    send_to_rio("\n");
+	  }
+	  closedir (dir);
+	} else {
+	  perror ("Directory not found. This error is not supposed to appear");
+	  exit(0);
+	}
+}
+
 void liberer(char **table){
 	int i = 0;
 	while(table[i] != NULL){
@@ -219,7 +235,34 @@ void lire(int connfd){
         	}else{
         		change_directory(working_directory, commands[1]);
         	}
-        }else{
+        }else if(strcmp(commands[0], "pwd") == 0){
+	        send_to_rio(working_directory);
+        }else if(strcmp(commands[0], "ls") == 0){
+        	if(exist_file(working_directory) != 2){
+		        send_to_rio("Directory not found : ");
+		        send_to_rio(working_directory);
+		        send_to_rio("\n");
+        	} else {
+        		list_directory(working_directory);
+        	}
+        } else if(strcmp(commands[0], "mkdir") == 0){
+        	if(commands[1] == NULL){
+        		send_to_rio("Need name as argument\n");
+        	}else{
+	        	char filename[strlen(working_directory) + strlen(commands[1]) + 1 + 1];
+	    		strcpy(filename, working_directory);
+	    		strcpy(filename + strlen(working_directory), "/");
+	    		strcpy(filename + strlen(working_directory) + 1, commands[1]);
+	    		if(exist_file(filename) != 0){
+	    			send_to_rio("File exitsts : ");
+	    			send_to_rio(filename);
+	    			send_to_rio("\n");
+	    		}else{
+	    			mkdir(filename, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+	        	}
+	        }
+        }
+        else{
         	send_to_rio("Invalid command\n");
         }
 
