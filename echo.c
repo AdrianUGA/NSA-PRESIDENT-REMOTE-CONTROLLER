@@ -4,6 +4,7 @@
 #include "csapp.h"
 #include <string.h>
 #include <unistd.h>
+#include <sys/stat.h>
 
 #define MAXCOMMAND 10
 #define BLOCK_SIZE 40
@@ -32,13 +33,50 @@ void split(char *string, char **table){
 	}
 }
 
+/* Avec cette fonction, l'envoi est différé */
+void send_to_rio(char* string){
+	if(string_to_send == NULL){
+		string_to_send = malloc(strlen(string)+1);
+		strcpy(string_to_send, string);
+	}else{
+		string_to_send = realloc(string_to_send, strlen(string_to_send) + strlen(string) + 1);
+		strcpy(string_to_send + strlen(string_to_send), string);
+	}
+}
+
 char last_char_off(char *string){
 	if(string == NULL || strlen(string) == 0)
 		return '\0';
 	return string[strlen(string)-1];
 }
 
+int exist_directory(char *path){
+	struct stat s;
+	int err = stat(path, &s);
+	if(-1 == err) {
+	    if(ENOENT == errno) {
+	        return 0;
+	    } else {
+	        perror("stat");
+	        exit(1);
+	    }
+	} else {
+	    if(S_ISDIR(s.st_mode)) {
+	        return 1;
+	    } else {
+	        return 0;
+	    }
+	}
+}
+
 void set_working_directory(char *working_directory, char *path){
+	if(!exist_directory(path)){
+        send_to_rio("Directory not found : ");
+        send_to_rio(path);
+        send_to_rio("\n");
+        return;
+	}
+
 	working_directory = realloc(working_directory, strlen(path) + 1);
 	strcpy(working_directory, path);
 }
@@ -51,13 +89,18 @@ void init_working_directory(char *working_directory){
 }
 
 void change_directory(char *working_directory, char *path){
+	if(path[strlen(path)-1] == '/') /* slash final */
+		path[strlen(path)-1] = '\0';
+	
+
 	if(path[0] == '/'){
 		set_working_directory(working_directory, path);
-	} else {
-		if(path[strlen(path)-1] == '/'){ /* slash final */
-			path[strlen(path)-1] = '\0';
+	} else if(strcmp(path, "..") == 0){
+		while(working_directory[strlen(working_directory)-1] != '/'){
+			working_directory[strlen(working_directory)-1] = '\0';
 		}
-
+		working_directory = realloc(working_directory, strlen(working_directory) + 1);
+	} else {
 		char new_working_directory[strlen(working_directory) + strlen(path) + 2];
 		strcpy(new_working_directory, working_directory);
 		strcpy(new_working_directory + strlen(new_working_directory), "/");
@@ -74,16 +117,7 @@ void liberer(char **table){
 	}
 }
 
-/* Avec cette fonction, l'envoi est différé */
-void send_to_rio(char* string){
-	if(string_to_send == NULL){
-		string_to_send = malloc(strlen(string)+1);
-		strcpy(string_to_send, string);
-	}else{
-		string_to_send = realloc(string_to_send, strlen(string_to_send) + strlen(string) + 1);
-		strcpy(string_to_send + strlen(string_to_send), string);
-	}
-}
+
 
 void send_prompt(char* working_directory, char last_char_sent){
 	if(last_char_sent != '\n')
